@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌸 學習小夥伴 Pro 🌸</title>
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body{
+    font-family:"Microsoft JhengHei", "Noto Sans TC", sans-serif;
+    background:linear-gradient(135deg,#ffd6e0,#fff3b0,#d0f4de);
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    min-height:100vh;
+    padding:20px;
+}
+
+.card{
+    background:white;
+    padding:30px 20px;
+    border-radius:25px;
+    width:100%;
+    max-width:450px;
+    text-align:center;
+    box-shadow:0 15px 35px rgba(0,0,0,0.15);
+    position: relative;
+}
+
+.animal{
+    font-size:80px;
+    cursor:pointer;
+    transition:all 0.3s ease;
+    display:inline-block;
+}
+.animal:hover{
+    transform:scale(1.15) rotate(5deg);
+    filter: drop-shadow(0 5px 8px rgba(255,111,145,0.3));
+}
+
+.timer{
+    font-size:48px;
+    margin:15px 0;
+    color:#ff6f91;
+    font-weight:bold;
+    font-family: 'Courier New', monospace;
+}
+
+button{
+    margin:4px;
+    padding:8px 12px;
+    border:none;
+    border-radius:10px;
+    cursor:pointer;
+    transition:all 0.2s ease;
+    font-family:"Microsoft JhengHei", sans-serif;
+}
+
+button:hover{
+    opacity:0.9;
+    transform:translateY(-2px);
+}
+
+button:active{
+    transform:translateY(0);
+}
+
+.small-btn{
+    background:#e0fbfc;
+    font-size:12px;
+    color:#2d3142;
+}
+
+.start{background:#a0e7e5; color:#2d3142;}
+.pause{background:#ffc8dd; color:#2d3142;}
+.end{background:#ff8fab; color:white;}
+.reset{background:#bdb2ff; color:#2d3142;}
+
+button:disabled{
+    opacity:0.5;
+    cursor:not-allowed;
+    transform:none !important;
+}
+
+.history{
+    margin-top:10px;
+    background:#f9f9f9;
+    padding:10px;
+    border-radius:10px;
+    max-height:130px;
+    overflow-y:auto;
+    font-size:13px;
+    text-align:left;
+    border:1px solid #f0f0f0;
+}
+
+.history::-webkit-scrollbar{
+    width:6px;
+}
+.history::-webkit-scrollbar-thumb{
+    background:#ffc8dd;
+    border-radius:3px;
+}
+
+.total{
+    margin-top:8px;
+    font-weight:bold;
+    color:#ff6f91;
+}
+
+.message{
+    min-height:30px;
+    color:#4a4e69;
+    font-size:15px;
+    margin:10px 0;
+}
+
+.clear-history{
+    margin-top:8px;
+    font-size:12px;
+    background:#f8edeb;
+    color:#9a8c98;
+    padding:4px 8px;
+}
+
+.toast {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: #ff8fab;
+    color: white;
+    padding: 6px 12px;
+    border-radius:8px;
+    font-size:12px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.toast.show {
+    opacity: 1;
+}
+</style>
+</head>
+<body>
+
+<div class="card">
+    <h2>🌸 學習小夥伴 🌸</h2>
+    <div class="animal" onclick="changeAnimal()" id="animal">🐰</div>
+    <div class="message" id="message"></div>
+    <div class="timer" id="timer">00:00:00</div>
+
+    <div>
+        <button class="small-btn" onclick="addTime(3600)">+1小時</button>
+        <button class="small-btn" onclick="addTime(600)">+10分鐘</button>
+        <button class="small-btn" onclick="addTime(60)">+1分鐘</button>
+        <button class="small-btn" onclick="addTime(10)">+10秒</button>
+        <button class="small-btn" onclick="addTime(1)">+1秒</button>
+    </div>
+
+    <div style="margin:15px 0;">
+        <button class="start" onclick="startTimer()" id="startBtn">開始</button>
+        <button class="pause" onclick="pauseTimer()" id="pauseBtn" disabled>暫停</button>
+        <button class="end" onclick="endSession()" id="endBtn" disabled>結束</button>
+        <button class="reset" onclick="resetTimer()">重設</button>
+    </div>
+
+    <div class="total" id="totalTime"></div>
+    <button class="clear-history" onclick="clearHistory()">清空學習紀錄</button>
+    <div class="history" id="history"></div>
+    <div class="toast" id="toast"></div>
+</div>
+
+<script>
+// 一開始從 0 開始，自己加時間後倒數
+let targetSeconds = 0;    // 你設定的總倒數時間
+let timeLeft = 0;        // 剩下多少秒
+let countdown = null;
+let isRunning = false;
+let totalSeconds = parseInt(localStorage.getItem("totalSeconds")) || 0;
+
+const animals = ["🐰","🐱","🐻","🐶","🦊","🐼","🐯","🐨","🐸","🐹","🐮","🐷"];
+const messages = [
+    "慢慢來也沒關係 💛","今天也在進步！","你真的很努力耶！","專心一下下就好 ✨",
+    "未來會感謝現在的你。","辛苦了，我陪你。","堅持就是勝利 💪",
+    "小小的累，大大的收穫～","你超棒的！繼續加油 ✨","休息是為了走更長的路～"
+];
+
+function formatTime(sec) {
+    if (isNaN(sec) || sec < 0) sec = 0;
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    return [h, m, s].map(num => String(num).padStart(2, '0')).join(':');
+}
+
+function updateDisplay() {
+    document.getElementById("timer").textContent = formatTime(timeLeft);
+    document.getElementById("startBtn").disabled = isRunning || timeLeft <= 0;
+    document.getElementById("pauseBtn").disabled = !isRunning;
+    document.getElementById("endBtn").disabled = !isRunning;
+}
+
+// 加時數：從 0 往上加，作為倒數目標
+function addTime(sec) {
+    if (isRunning) return;
+    targetSeconds += sec;
+    timeLeft = targetSeconds;
+    updateDisplay();
+    showToast(`已增加 ${formatTime(sec)}`);
+}
+
+// 開始倒數
+function startTimer() {
+    if (isRunning || timeLeft <= 0) return;
+    isRunning = true;
+    updateDisplay();
+    showToast("開始倒數～💪");
+
+    countdown = setInterval(() => {
+        timeLeft--;
+        updateDisplay();
+        if (timeLeft <= 0) {
+            endSession();
+            showToast("時間到！真棒～🎉");
+        }
+    }, 1000);
+}
+
+// 暫停倒數
+function pauseTimer() {
+    clearInterval(countdown);
+    isRunning = false;
+    updateDisplay();
+    showToast("已暫停 ⏸️");
+}
+
+// 重設回 00:00:00
+function resetTimer() {
+    clearInterval(countdown);
+    isRunning = false;
+    targetSeconds = 0;
+    timeLeft = 0;
+    updateDisplay();
+    showToast("已重設歸零 ⏱️");
+}
+
+// 結束並記錄
+function endSession() {
+    clearInterval(countdown);
+    isRunning = false;
+
+    const used = targetSeconds - timeLeft;
+    const realUsed = used > 0 ? used : 0;
+
+    if (realUsed > 0) {
+        saveRecord(realUsed);
+        showToast(`本次學習 ${formatTime(realUsed)}，超棒！✨`);
+    } else {
+        showToast("請先設定時間並開始哦～😜");
+    }
+
+    resetTimer();
+}
+
+// 儲存紀錄
+function saveRecord(seconds) {
+    totalSeconds += seconds;
+    localStorage.setItem("totalSeconds", totalSeconds);
+
+    let history = localStorage.getItem("history") || "";
+    const now = new Date().toLocaleString("zh-TW");
+    const newRecord = `${now} - ${formatTime(seconds)}<br>`;
+    history = newRecord + history;
+    localStorage.setItem("history", history);
+
+    loadData();
+    changeAnimal();
+}
+
+function changeAnimal() {
+    const randomAnimal = animals[Math.floor(Math.random() * animals.length)];
+    const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+    document.getElementById("animal").textContent = randomAnimal;
+    document.getElementById("message").textContent = randomMessage;
+}
+
+function loadData() {
+    document.getElementById("totalTime").textContent =
+        `🌟 總學習時長：${formatTime(totalSeconds)}`;
+    const historyContent = localStorage.getItem("history") || "還沒有學習紀錄哦～💖";
+    document.getElementById("history").innerHTML =
+        `<strong>📜 學習紀錄：</strong><br>${historyContent}`;
+}
+
+function clearHistory() {
+    if (confirm("確定要清空所有紀錄嗎？此操作無法復原～")) {
+        localStorage.removeItem("history");
+        localStorage.setItem("totalSeconds", 0);
+        totalSeconds = 0;
+        loadData();
+        showToast("已清空所有學習紀錄 🗑️");
+    }
+}
+
+function showToast(text) {
+    const toast = document.getElementById("toast");
+    toast.textContent = text;
+    toast.classList.add("show");
+    setTimeout(() => {
+        toast.classList.remove("show");
+    }, 3000);
+}
+
+// 初始化
+loadData();
+updateDisplay();
+changeAnimal();
+</script>
+</body>
+</html>
